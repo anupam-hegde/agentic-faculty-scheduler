@@ -1,0 +1,5 @@
+crewai
+langchain-nvidia-ai-endpoints
+streamlit
+sqlalchemy
+pydantic
