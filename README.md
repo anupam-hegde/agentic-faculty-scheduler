@@ -1,4 +1,4 @@
-# Project APAN
+# agentic-faculty-scheduler
 
 Project APAN is a full-stack application that provides an AI-powered timetable negotiation system.
 
