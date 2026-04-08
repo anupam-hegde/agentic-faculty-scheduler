@@ -37,6 +37,8 @@ const SESSION_LOOKUP = new Map<number, SessionInfo>(
 
 export default function Page() {
   const [apiKey, setApiKey] = useState("");
+  const [customPrompt, setCustomPrompt] = useState("");
+  const [selectedProf, setSelectedProf] = useState("Dr. Sharma");
   const [loading, setLoading] = useState(false);
   const [timetableData, setTimetableData] = useState<TimetableData | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
@@ -71,13 +73,19 @@ export default function Page() {
     setErrorMessage("");
 
     try {
+      const trimmedPrompt = customPrompt.trim();
       const response = await fetch("http://localhost:8000/api/negotiate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(apiKey.trim() ? { "X-NVIDIA-API-Key": apiKey.trim() } : {}),
         },
-        body: JSON.stringify({ nvidia_api_key: apiKey.trim() }),
+        body: JSON.stringify({
+          nvidia_api_key: apiKey.trim(),
+          custom_backstories: trimmedPrompt
+            ? { [selectedProf]: trimmedPrompt }
+            : {},
+        }),
       });
 
       if (!response.ok) {
@@ -156,6 +164,45 @@ export default function Page() {
                 spellCheck={false}
                 className="w-full rounded-xl border border-white/20 bg-black/40 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/45 focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/30"
               />
+
+              <div className="mt-4 rounded-2xl border border-white/15 bg-black/30 p-4">
+                <h3 className="text-sm font-semibold text-cyan-100">Talk to Your Proxy Agent</h3>
+                <p className="mt-1 text-xs text-white/70">
+                  Add professor-specific preferences before the swarm starts negotiating.
+                </p>
+
+                <label
+                  htmlFor="professor-select"
+                  className="mt-3 mb-2 block text-xs font-medium tracking-wide text-cyan-100/90"
+                >
+                  Professor Login
+                </label>
+                <select
+                  id="professor-select"
+                  value={selectedProf}
+                  onChange={(event) => setSelectedProf(event.target.value)}
+                  className="w-full rounded-xl border border-white/15 bg-black/40 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/30"
+                >
+                  <option value="Dr. Sharma">Dr. Sharma</option>
+                  <option value="Dr. Verma">Dr. Verma</option>
+                  <option value="Dr. Rao">Dr. Rao</option>
+                </select>
+
+                <label
+                  htmlFor="agent-intake"
+                  className="mt-3 mb-2 block text-xs font-medium tracking-wide text-cyan-100/90"
+                >
+                  Intake Message
+                </label>
+                <textarea
+                  id="agent-intake"
+                  value={customPrompt}
+                  onChange={(event) => setCustomPrompt(event.target.value)}
+                  placeholder="E.g., I absolutely need to teach Data Structures Section A, and I cannot do morning classes..."
+                  rows={4}
+                  className="w-full resize-none rounded-xl border border-white/15 bg-black/40 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-white/45 focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/30"
+                />
+              </div>
 
               <button
                 type="button"

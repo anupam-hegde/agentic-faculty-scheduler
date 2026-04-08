@@ -6,7 +6,7 @@ from pydantic import BaseModel
 import uvicorn
 from sqlalchemy import select
 
-from database import ClassSession, SessionLocal
+from database import ClassSession, Professor, SessionLocal
 
 app = FastAPI(title="Project APAN API")
 
@@ -21,6 +21,7 @@ app.add_middleware(
 
 class NegotiateRequest(BaseModel):
     nvidia_api_key: str | None = None
+    custom_backstories: dict[str, str] | None = None
 
 
 @app.post("/api/negotiate")
@@ -46,9 +47,45 @@ def negotiate_timetable(
                 detail="Missing NVIDIA API key. Pass it in request body as nvidia_api_key or X-NVIDIA-API-Key header.",
             )
 
+        with SessionLocal() as session:
+            for class_session in session.scalars(select(ClassSession)).all():
+                class_session.assigned_to_id = None
+            session.commit()
+
         from agent_engine import run_allocation_process
 
-        allocation = run_allocation_process()
+        allocation = run_allocation_process(
+            custom_backstories=payload.custom_backstories if payload else None
+        )
+
+        with SessionLocal() as session:
+            for professor_name, session_ids in allocation.items():
+                professor = session.execute(
+                    select(Professor).where(Professor.name == professor_name)
+                ).scalar_one_or_none()
+
+                if not professor:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Professor '{professor_name}' not found.",
+                    )
+
+                if not session_ids:
+                    continue
+
+                assigned_sessions = (
+                    session.execute(
+                        select(ClassSession).where(ClassSession.id.in_(session_ids))
+                    )
+                    .scalars()
+                    .all()
+                )
+
+                for class_session in assigned_sessions:
+                    class_session.assigned_to_id = professor.id
+
+            session.commit()
+
         return {"timetable": allocation}
     except HTTPException:
         raise
@@ -81,6 +118,27 @@ def get_status() -> dict:
     ]
 
     return {"unassigned_subjects": unassigned_subjects}
+
+
+@app.get("/api/timetable")
+def get_timetable() -> list[dict]:
+    with SessionLocal() as session:
+        rows = session.execute(
+            select(ClassSession, Professor)
+            .join(Professor, ClassSession.assigned_to_id == Professor.id)
+            .order_by(ClassSession.id)
+        ).all()
+
+    return [
+        {
+            "session_id": class_session.id,
+            "subject_name": class_session.subject_name,
+            "year": class_session.year,
+            "section": class_session.section,
+            "professor_name": professor.name,
+        }
+        for class_session, professor in rows
+    ]
 
 
 if __name__ == "__main__":

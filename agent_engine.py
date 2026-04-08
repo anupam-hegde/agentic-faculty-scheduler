@@ -11,57 +11,12 @@ from database import ClassSession, SessionLocal
 from validator import CheckWorkloadTool
 
 llm = ChatNVIDIA(
-    model="meta/llama3-70b-instruct",
+    model="meta/llama-3.1-70b-instruct",
     api_key=os.environ["NVIDIA_API_KEY"],
 )
 
 # CrewAI agents in this setup use a model identifier string.
-llm_for_agents = "nvidia_nim/meta/llama3-70b-instruct"
-
-check_workload_tool = CheckWorkloadTool()
-
-sharma_agent = Agent(
-    role="Sharma Allocation Negotiator",
-    goal="Secure the most suitable timetable for Dr. Sharma while respecting workload limits.",
-    backstory="You represent Dr. Sharma. Your absolute goal is to secure Year 3 Machine Learning (Sections A and B). You refuse Year 1 classes. You negotiate aggressively.",
-    llm=llm_for_agents,
-    tools=[check_workload_tool],
-    verbose=False,
-)
-
-verma_agent = Agent(
-    role="Verma Allocation Negotiator",
-    goal="Secure the most suitable timetable for Dr. Verma while respecting workload limits.",
-    backstory="You represent Dr. Verma. Your goal is Year 2 Data Structures. You prefer Section A, but will take both to meet your minimum hours. You use logical trade-offs.",
-    llm=llm_for_agents,
-    tools=[check_workload_tool],
-    verbose=False,
-)
-
-rao_agent = Agent(
-    role="Rao Allocation Negotiator",
-    goal="Secure the most suitable timetable for Dr. Rao while respecting workload limits.",
-    backstory="You represent Dr. Rao. Your goal is Year 1 classes. You are highly cooperative and will take leftover sections, as long as the workload is valid.",
-    llm=llm_for_agents,
-    tools=[check_workload_tool],
-    verbose=False,
-)
-
-negotiate_timetable = Task(
-    description="Review all unassigned ClassSessions in the database. Debate with the other agents to claim classes based on your goals. Use the CheckWorkloadTool to ensure no one exceeds 16 hours. You must output the final agreement as a raw, valid JSON string mapping Professor Names to a list of ClassSession IDs (e.g., {'Dr. Sharma': [5, 6]}).\nUnassigned ClassSessions: {unassigned_sessions}",
-    expected_output=(
-        "A raw JSON string only, with no markdown, in the form "
-        '{"Dr. Sharma": [5, 6], "Dr. Verma": [3, 4], "Dr. Rao": [1, 2]}.'
-    ),
-    agent=sharma_agent,
-)
-
-allocation_crew = Crew(
-    agents=[sharma_agent, verma_agent, rao_agent],
-    tasks=[negotiate_timetable],
-    process=Process.sequential,
-    verbose=False,
-)
+llm_for_agents = "nvidia_nim/meta/llama-3.1-70b-instruct"
 
 
 def _get_unassigned_sessions() -> list[dict[str, Any]]:
@@ -127,7 +82,67 @@ def _validate_allocation(payload: Any) -> dict[str, list[int]]:
     return validated
 
 
-def run_allocation_process() -> dict[str, list[int]]:
+def run_allocation_process(
+    custom_backstories: dict[str, str] | None = None,
+) -> dict[str, list[int]]:
+    
+    sharma_backstory = "You represent Dr. Sharma. Your absolute goal is to secure Year 3 Machine Learning (Sections A and B). You refuse Year 1 classes. You negotiate aggressively."
+    verma_backstory = "You represent Dr. Verma. Your goal is Year 2 Data Structures. You prefer Section A, but will take both to meet your minimum hours. You use logical trade-offs."
+    rao_backstory = "You represent Dr. Rao. Your goal is Year 1 classes. You are highly cooperative and will take leftover sections, as long as the workload is valid."
+
+    if custom_backstories:
+        if "Dr. Sharma" in custom_backstories:
+            sharma_backstory = custom_backstories["Dr. Sharma"]
+        if "Dr. Verma" in custom_backstories:
+            verma_backstory = custom_backstories["Dr. Verma"]
+        if "Dr. Rao" in custom_backstories:
+            rao_backstory = custom_backstories["Dr. Rao"]
+
+    check_workload_tool = CheckWorkloadTool()
+
+    sharma_agent = Agent(
+        role="Sharma Allocation Negotiator",
+        goal="Secure the most suitable timetable for Dr. Sharma while respecting workload limits.",
+        backstory=sharma_backstory,
+        llm=llm_for_agents,
+        tools=[check_workload_tool],
+        verbose=False,
+    )
+
+    verma_agent = Agent(
+        role="Verma Allocation Negotiator",
+        goal="Secure the most suitable timetable for Dr. Verma while respecting workload limits.",
+        backstory=verma_backstory,
+        llm=llm_for_agents,
+        tools=[check_workload_tool],
+        verbose=False,
+    )
+
+    rao_agent = Agent(
+        role="Rao Allocation Negotiator",
+        goal="Secure the most suitable timetable for Dr. Rao while respecting workload limits.",
+        backstory=rao_backstory,
+        llm=llm_for_agents,
+        tools=[check_workload_tool],
+        verbose=False,
+    )
+
+    negotiate_timetable = Task(
+        description="Review all unassigned ClassSessions in the database. Debate with the other agents to claim classes based on your goals. Use the CheckWorkloadTool to ensure no one exceeds 16 hours. You must output the final agreement as a raw, valid JSON string mapping Professor Names to a list of ClassSession IDs (e.g., {'Dr. Sharma': [5, 6]}).\nUnassigned ClassSessions: {unassigned_sessions}",
+        expected_output=(
+            "A raw JSON string only, with no markdown, in the form "
+            '{"Dr. Sharma": [5, 6], "Dr. Verma": [3, 4], "Dr. Rao": [1, 2]}.'
+        ),
+        agent=sharma_agent,
+    )
+
+    allocation_crew = Crew(
+        agents=[sharma_agent, verma_agent, rao_agent],
+        tasks=[negotiate_timetable],
+        process=Process.sequential,
+        verbose=False,
+    )
+
     unassigned_sessions = _get_unassigned_sessions()
     result = allocation_crew.kickoff(
         inputs={"unassigned_sessions": unassigned_sessions}
