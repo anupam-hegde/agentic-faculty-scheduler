@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Bot, Sparkles, Workflow } from "lucide-react";
+import { Bot, Sparkles, Workflow, Users } from "lucide-react";
+import Link from "next/link";
 
 import CanvasBackground from "@/components/CanvasBackground";
 
@@ -42,6 +43,46 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [timetableData, setTimetableData] = useState<TimetableData | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+
+  // Initialize from sessionStorage to prevent data loss on tab switch
+  useEffect(() => {
+    const savedApiKey = sessionStorage.getItem("apan_apiKey");
+    if (savedApiKey) setApiKey(savedApiKey);
+
+    const savedPrompt = sessionStorage.getItem("apan_customPrompt");
+    if (savedPrompt) setCustomPrompt(savedPrompt);
+
+    const savedProf = sessionStorage.getItem("apan_selectedProf");
+    if (savedProf) setSelectedProf(savedProf);
+
+    const savedTimetableData = sessionStorage.getItem("apan_timetableData");
+    if (savedTimetableData) {
+      try {
+        setTimetableData(JSON.parse(savedTimetableData));
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
+  // Save to sessionStorage when values change
+  useEffect(() => {
+    sessionStorage.setItem("apan_apiKey", apiKey);
+  }, [apiKey]);
+
+  useEffect(() => {
+    sessionStorage.setItem("apan_customPrompt", customPrompt);
+  }, [customPrompt]);
+
+  useEffect(() => {
+    sessionStorage.setItem("apan_selectedProf", selectedProf);
+  }, [selectedProf]);
+
+  useEffect(() => {
+    if (timetableData) {
+      sessionStorage.setItem("apan_timetableData", JSON.stringify(timetableData));
+    }
+  }, [timetableData]);
 
   const groupedSchedule = useMemo(() => {
     const buckets: Record<number, ScheduleRow[]> = { 1: [], 2: [], 3: [] };
@@ -118,15 +159,33 @@ export default function Page() {
           className="w-full max-w-6xl rounded-3xl border border-white/20 bg-white/10 shadow-[0_30px_140px_rgba(0,0,0,0.62)] backdrop-blur-md"
         >
           <header className="border-b border-white/15 px-6 py-6 sm:px-8">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-200/30 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
-              <Sparkles className="h-3.5 w-3.5" />
-              Agentic Timetable Intelligence
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+              <div>
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-200/30 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Agentic Timetable Intelligence
+                </div>
+                <h1 className="text-2xl font-semibold sm:text-3xl">Project APAN: Agentic Allocation</h1>
+                <p className="mt-2 max-w-3xl text-sm text-white/75">
+                  Live multi-agent negotiation engine for university timetable assignment with
+                  workload-safe validation.
+                </p>
+              </div>
+              <div className="flex bg-black/40 p-1 rounded-xl border border-white/15 w-fit">
+                <button
+                  type="button"
+                  className="px-4 py-2 text-sm font-medium rounded-lg transition-colors bg-white/10 text-cyan-100 shadow-md"
+                >
+                  Teacher Portal
+                </button>
+                <Link
+                  href="/hod"
+                  className="px-4 py-2 text-sm font-medium rounded-lg transition-colors text-white/60 hover:text-white/90 hover:bg-white/5"
+                >
+                  HOD Dashboard
+                </Link>
+              </div>
             </div>
-            <h1 className="text-2xl font-semibold sm:text-3xl">Project APAN: Agentic Allocation</h1>
-            <p className="mt-2 max-w-3xl text-sm text-white/75">
-              Live multi-agent negotiation engine for university timetable assignment with
-              workload-safe validation.
-            </p>
           </header>
 
           <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[380px,1fr]">

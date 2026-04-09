@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { RotateCw, ShieldCheck, Users, Workflow } from "lucide-react";
 
+import Link from "next/link";
 import CanvasBackground from "@/components/CanvasBackground";
 
 type TimetableRow = {
@@ -61,6 +62,21 @@ export default function HODPage() {
               </p>
             </div>
 
+            <div className="flex bg-black/40 p-1 rounded-xl border border-white/15 w-fit">
+              <Link
+                href="/"
+                className="px-4 py-2 text-sm font-medium rounded-lg transition-colors text-white/60 hover:text-white/90 hover:bg-white/5"
+              >
+                Teacher Portal
+              </Link>
+              <button
+                type="button"
+                className="px-4 py-2 text-sm font-medium rounded-lg transition-colors bg-white/10 text-cyan-100 shadow-md"
+              >
+                HOD Dashboard
+              </button>
+            </div>
+            
             <button
               type="button"
               onClick={() => void fetchTimetable(true)}
@@ -99,55 +115,64 @@ export default function HODPage() {
             </article>
           </div>
 
-          <section className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-black/30">
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 sm:px-5">
+          <section className="mt-8">
+            <div className="flex items-center justify-between mb-4 px-1">
               <h2 className="text-lg font-semibold text-white">Live Master Timetable</h2>
-              <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs text-white/70">
+              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/70 backdrop-blur-md">
                 {timetable.length} assigned
               </span>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-white/[0.03] text-white/70">
-                  <tr>
-                    <th className="px-4 py-3 font-medium sm:px-5">Professor Name</th>
-                    <th className="px-4 py-3 font-medium sm:px-5">Subject</th>
-                    <th className="px-4 py-3 font-medium sm:px-5">Year</th>
-                    <th className="px-4 py-3 font-medium sm:px-5">Section</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr className="border-t border-white/5">
-                      <td colSpan={4} className="px-4 py-6 text-center text-white/65 sm:px-5">
-                        Loading timetable...
-                      </td>
-                    </tr>
-                  ) : timetable.length > 0 ? (
-                    timetable.map((row) => (
-                      <tr
-                        key={row.session_id}
-                        className="border-t border-white/5 text-white/85 transition hover:bg-white/5"
-                      >
-                        <td className="px-4 py-3 font-medium text-cyan-100 sm:px-5">
-                          {row.professor_name}
-                        </td>
-                        <td className="px-4 py-3 sm:px-5">{row.subject_name}</td>
-                        <td className="px-4 py-3 sm:px-5">Year {row.year}</td>
-                        <td className="px-4 py-3 sm:px-5">{row.section}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr className="border-t border-white/5">
-                      <td colSpan={4} className="px-4 py-6 text-center text-white/60 sm:px-5">
-                        No assigned sessions available.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            {loading ? (
+              <div className="rounded-2xl border border-white/10 bg-black/30 p-10 text-center text-white/65">
+                Loading timetable...
+              </div>
+            ) : timetable.length > 0 ? (
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {Object.entries(
+                  timetable.reduce((acc, row) => {
+                    const key = `Year ${row.year} - Section ${row.section}`;
+                    if (!acc[key]) acc[key] = [];
+                    acc[key].push(row);
+                    return acc;
+                  }, {} as Record<string, typeof timetable>)
+                ).map(([groupKey, sessions]) => (
+                  <div
+                    key={groupKey}
+                    className="flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-black/30 shadow-lg backdrop-blur-md"
+                  >
+                    <div className="bg-white/[0.03] border-b border-white/10 px-5 py-3">
+                      <h3 className="font-semibold text-cyan-200">{groupKey}</h3>
+                    </div>
+                    <div className="flex-1 p-5">
+                      <ul className="space-y-3">
+                        {sessions.map((session) => (
+                          <li
+                            key={session.session_id}
+                            className="group relative overflow-hidden rounded-xl border border-white/5 bg-white/[0.02] p-4 transition hover:bg-white/[0.06]"
+                          >
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-cyan-400/30 transition-colors group-hover:bg-cyan-400"></div>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-sm font-medium text-white/90">
+                                {session.subject_name}
+                              </span>
+                              <div className="flex items-center gap-2 text-xs text-white/60">
+                                <Users className="h-3 w-3 text-cyan-200/50" />
+                                <span>{session.professor_name || "Unassigned"}</span>
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-white/10 bg-black/30 p-10 text-center text-white/60">
+                No assigned sessions available.
+              </div>
+            )}
           </section>
         </section>
       </main>
